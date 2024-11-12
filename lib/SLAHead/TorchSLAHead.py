@@ -15,6 +15,7 @@ class SLAHead(nn.Module):
         self.out_channels = out_channels
         self.num_embeddings = self.out_channels
         self.is_train = is_train
+        self.eos = self.num_embeddings - 1
 
         self.structure_attention_cell = AttentionGRUCell(in_channels,
                                                          self.hidden_size,
@@ -31,6 +32,7 @@ class SLAHead(nn.Module):
         )
 
     def forward(self, fea):
+        fea = fea[-1]
         batch_size = fea.shape[0]
 
         # 1 x 96 x 16 x 16 → 1 x 96 x 256
@@ -42,25 +44,35 @@ class SLAHead(nn.Module):
         # infer 1 x 501 x 30
         structure_preds = torch.zeros(batch_size, self.max_text_length + 1,
                                       self.num_embeddings)
-        # 1 x 501 x 4
+        # 1 x 501 x 8
         loc_preds = torch.zeros(batch_size, self.max_text_length + 1,
                                 self.loc_reg_num)
 
         hidden = torch.zeros(batch_size, self.hidden_size)
         pre_chars = torch.zeros(batch_size, dtype=torch.int64)
 
+        structure_ids = torch.zeros(
+            (batch_size, self.max_text_length+1), dtype=torch.int32
+        )
         loc_step, structure_step = None, None
         for i in range(self.max_text_length + 1):
-            hidden, structure_step, loc_step = self._decode(pre_chars,
+            hidden, structure_step, loc_step = self._decode(pre_chars,  # 1. same
                                                             fea, hidden)
             pre_chars = structure_step.argmax(dim=1)
             structure_preds[:, i, :] = structure_step
             loc_preds[:, i, :] = loc_step
 
+            structure_ids[:, i] = pre_chars
+            if (structure_ids == self.eos).any(-1).all():
+                break
+
         if not self.is_train:
-            structure_preds = F.softmax(structure_preds, dim=-1)
+            # structure_preds = F.softmax(structure_preds, dim=-1)
+            structure_preds = F.softmax(structure_preds[:, : i + 1])
+            loc_preds = loc_preds[:, : i + 1]
         # structure_preds: 1 x 501 x 30
-        # loc_preds: 1 x 501 x 4
+        # loc_preds: 1 x 501 x 8
+        # breakpoint()
         return structure_preds, loc_preds
 
     def _decode(self, pre_chars, features, hidden):

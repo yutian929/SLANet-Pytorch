@@ -86,9 +86,6 @@ class BaseModel(nn.Module):
         # 1 x 96 x 16 x 16
         # 取 1 x 96 x 16 x 16这个特征，进入后续基于注意力机制的层
         if self.use_head:
-            if isinstance(x, tuple) or isinstance(x, list):
-                # 去最后一个
-                x = x[-1]
             x = self.head(x)
             # for multi head, save ctc neck out for udml
             if isinstance(x, dict) and "ctc_neck" in x.keys():

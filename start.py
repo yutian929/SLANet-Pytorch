@@ -1,8 +1,10 @@
 import csv
 import paddle
 import pandas as pd
+import numpy as np
 import torch
-from lib.Arch.TorchBaseModel import BaseModel
+from lib.Arch.TorchBaseModel import BaseModel as TorchBaseModel
+from lib.Arch.PaddleBaseModel import BaseModel as PaddleBaseModel
 
 def transpose_weights(paddle_weights, transpose_layers):
     """
@@ -70,7 +72,6 @@ def save_name_param_pairs_to_csv(weights, filename, ignore_layers=None):
     
     
 
-
 if __name__ == '__main__':
     # 配置参数（直接修改my_build）
     CONFIG = {
@@ -80,17 +81,20 @@ if __name__ == '__main__':
         "Neck": {},
         "Head": {},
     }
+    weights_path = './weights/ch_PP-StructrureV2_SLANet_plus_trained.pdparams'
+    paddle_weights = paddle.load(weights_path)
 
-    # 初始化 PyTorch 模型
-    model = BaseModel(CONFIG)
+    # 初始化 PaddlePaddle 模型 --- --- --- Paddle Model --- --- ---
+    paddle_model = PaddleBaseModel(CONFIG)    
+    # Set the state dict to the model
+    paddle_model.set_state_dict(paddle_weights)
+
+    # 初始化 PyTorch 模型 --- --- --- PyTorch Model --- --- ---
+    pytorch_model = TorchBaseModel(CONFIG)
     print("Successfully initialized the PyTorch model.")
 
-    # 加载 PaddlePaddle 模型的权重
-    paddle_weights = paddle.load("./weights/ch_PP-StructrureV2_SLANet_plus_trained.pdparams")
-    print("Loaded PaddlePaddle weights.")
-
     # 转置前的模型参数，保存为csv
-    pytorch_weights = model.state_dict()
+    pytorch_weights = pytorch_model.state_dict()
     save_name_param_pairs_to_csv(pytorch_weights, "weights/pytorch_weights.csv", ignore_layers=['num_batches_tracked'])
     save_name_param_pairs_to_csv(paddle_weights, "weights/paddle_weights_before_transpose.csv")
 
@@ -116,20 +120,45 @@ if __name__ == '__main__':
     # 假设有相同的行数
     assert len(df_paddle) == len(df_pytorch), "Dataframes have different number of rows."
     layer_name_mapping = pd.Series(df_pytorch.iloc[:,0].values, index=df_paddle.iloc[:,0].str.strip()).to_dict()
-    # for key, value in layer_name_mapping.items():
-    #     print(key, value)
 
     # 将权重复制到 PyTorch 模型
-    copy_weights_to_pytorch(paddle_weights, model, layer_mapping=layer_name_mapping)
+    copy_weights_to_pytorch(paddle_weights, pytorch_model, layer_mapping=layer_name_mapping)
 
     # 保存转换后的 PyTorch 模型权重
-    torch.save(model.state_dict(), 'weights/pytorch_model_transferred.pth')
+    torch.save(pytorch_model.state_dict(), 'weights/pytorch_model_transferred.pth')
     print("Saved the PyTorch model weights to weights/pytorch_model_transferred.pth")
 
     # 测试转换后的模型
-    test_input = torch.randn(1, 3, 488, 488)
-    output = model(test_input)
-    # 模型预测两个值，一是structure_pobs，表格结构的html代码，二是loc_preds，回归单元格四个点坐标。
-    print("Output shapes:")
-    print(output[0].shape)
-    print(output[1].shape)
+    paddle_model.eval()
+    test_input = paddle.ones([1, 3, 488, 488])
+    paddle_output = paddle_model(test_input)
+
+    pytorch_model.load_state_dict(torch.load('weights/pytorch_model_transferred.pth'))
+    pytorch_model.eval()
+    test_input = torch.ones(1, 3, 488, 488)
+    pytorch_output = pytorch_model(test_input)
+
+    # 比较两个的数值是否一致
+    # Convert PaddlePaddle output to numpy
+    paddle_structure_probs = paddle_output['structure_probs'].numpy()
+    paddle_loc_preds = paddle_output['loc_preds'].numpy()
+
+    # Convert PyTorch output to numpy
+    pytorch_structure_probs = pytorch_output[0].detach().numpy()
+    pytorch_loc_preds = pytorch_output[1].detach().numpy()
+
+    # Check if the shape of the outputs from both models are the same
+    print("Checking output shapes...")
+    assert paddle_structure_probs.shape == pytorch_structure_probs.shape, "Structure probs shape mismatch!"
+    assert paddle_loc_preds.shape == pytorch_loc_preds.shape, "Loc preds shape mismatch!"
+    
+    print("Shapes are consistent. Now checking numerical closeness...")
+    # Check numerical closeness
+    try:
+        np.testing.assert_allclose(paddle_structure_probs, pytorch_structure_probs, rtol=1e-5, atol=1e-8)
+        np.testing.assert_allclose(paddle_loc_preds, pytorch_loc_preds, rtol=1e-5, atol=1e-8)
+        print("Outputs are numerically close.")
+    except AssertionError as e:
+        print("Outputs are not close enough:", e)
+
+    print("Testing complete.")

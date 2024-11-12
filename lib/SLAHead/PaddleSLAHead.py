@@ -72,14 +72,13 @@ def drop_path(x, drop_prob=0.0, training=False):
 class AttentionGRUCell(nn.Layer):
     def __init__(self, input_size, hidden_size, num_embeddings, use_gru=False):
         super(AttentionGRUCell, self).__init__()
-        print(f"Paddle Attention GRU Cell:\ninput_size={input_size}, hidden_size={hidden_size}, num_embeddings={num_embeddings}")
+        # print(f"Paddle Attention GRU Cell:\ninput_size={input_size}, hidden_size={hidden_size}, num_embeddings={num_embeddings}")
         self.i2h = nn.Linear(input_size, hidden_size, bias_attr=False)
         self.h2h = nn.Linear(hidden_size, hidden_size)
         self.score = nn.Linear(hidden_size, 1, bias_attr=False)
         self.rnn = nn.GRUCell(
             input_size=input_size + num_embeddings, hidden_size=hidden_size
         )
-        breakpoint()
 
         self.hidden_size = hidden_size
 
@@ -415,14 +414,14 @@ class SLAHead(nn.Layer):
         if self.use_attn:
             fea = fea + self.cross_atten(fea)
         # reshape
-        fea = paddle.reshape(fea, [fea.shape[0], fea.shape[1], -1])
-        fea = fea.transpose([0, 2, 1])  # (NTC)(batch, width, channels)
+        fea = paddle.reshape(fea, [fea.shape[0], fea.shape[1], -1])  # 1 x 96 x 16 x 16 → 1 x 96 x 256
+        fea = fea.transpose([0, 2, 1])  # (NTC)(batch, width, channels)  # 1 x 256 x 96
 
         hidden = paddle.zeros((batch_size, self.hidden_size))
-        structure_preds = paddle.zeros(
+        structure_preds = paddle.zeros(  # 1 x 501 x 30
             (batch_size, self.max_text_length + 1, self.num_embeddings)
         )
-        loc_preds = paddle.zeros(
+        loc_preds = paddle.zeros(  # 1 x 501 x 8
             (batch_size, self.max_text_length + 1, self.loc_reg_num)
         )
         structure_preds.stop_gradient = True
@@ -439,24 +438,25 @@ class SLAHead(nn.Layer):
                 loc_preds[:, i, :] = loc_step
             structure_preds = structure_preds[:, : max_len + 1]
             loc_preds = loc_preds[:, : max_len + 1]
-        else:
+        else:  # infer
             structure_ids = paddle.zeros(
                 (batch_size, self.max_text_length + 1), dtype="int32"
             )
             pre_chars = paddle.zeros(shape=[batch_size], dtype="int32")
             max_text_length = paddle.to_tensor(self.max_text_length)
             for i in range(max_text_length + 1):
-                hidden, structure_step, loc_step = self._decode(pre_chars, fea, hidden)
-                pre_chars = structure_step.argmax(axis=1, dtype="int32")
-                structure_preds[:, i, :] = structure_step
-                loc_preds[:, i, :] = loc_step
+                hidden, structure_step, loc_step = self._decode(pre_chars, fea, hidden)  # 1. pre_chars=[0], fea=[1,256,96], hidden=[1,256] -> hidden=[1,256], structure_step=[1,50], loc_step=[1,8]
+                pre_chars = structure_step.argmax(axis=1, dtype="int32")  # 1. pre_chars=[5]
+                structure_preds[:, i, :] = structure_step  # 1. structure_preds=[1,501,50]
+                loc_preds[:, i, :] = loc_step  # 1. loc_preds=[1,501,8]
 
-                structure_ids[:, i] = pre_chars
+                structure_ids[:, i] = pre_chars  # 1. structure_ids=[1,501]
                 if (structure_ids == self.eos).any(-1).all():
                     break
         if not self.training:
             structure_preds = F.softmax(structure_preds[:, : i + 1])
             loc_preds = loc_preds[:, : i + 1]
+        # breakpoint()
         return {"structure_probs": structure_preds, "loc_preds": loc_preds}
 
     def _decode(self, pre_chars, features, hidden):
