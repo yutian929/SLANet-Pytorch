@@ -1,4 +1,6 @@
-# 自己迁移
+# -*- encoding: utf-8 -*-
+# @Author: SWHL
+# @Contact: liekkaskono@163.com
 import torch
 from torch import nn
 from torch.nn import functional as F

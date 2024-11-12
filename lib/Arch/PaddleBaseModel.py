@@ -15,6 +15,27 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+DEBUG = True
+if DEBUG:
+    import numpy as np
+    import paddle
+    SAVE_PREFIX = "./debug_data/paddle/"
+    def save_numpy_array(data, filename):
+        # breakpoint()
+        filename = SAVE_PREFIX + filename
+        if isinstance(data, paddle.Tensor):
+            np.save(f"{filename}.npy", data.numpy())
+        elif isinstance(data, dict):
+            for key, val in data.items():
+                save_numpy_array(val, f"{filename[len(SAVE_PREFIX):]}_{key}.npy")
+        elif isinstance(data, (list, tuple)):
+            for idx, val in enumerate(data):
+                save_numpy_array(val, f"{filename[len(SAVE_PREFIX):]}_{idx}.npy")
+        else:
+            try:
+                np.save(f"{filename}.npy", np.array(data))
+            except Exception as e:
+                print(f"Failed to save data to {filename}.npy: {e}")
 from paddle import nn
 from .paddle_build import build_transform, build_backbone, build_neck, build_head
 
@@ -74,6 +95,8 @@ class BaseModel(nn.Layer):
         self.return_all_feats = config.get("return_all_feats", False)
 
     def forward(self, x, data=None):
+        if DEBUG:
+            save_numpy_array(x, 'input')
         y = dict()
         if self.use_transform:
             x = self.transform(x)
@@ -84,6 +107,8 @@ class BaseModel(nn.Layer):
         else:
             y["backbone_out"] = x
         final_name = "backbone_out"
+        if DEBUG:
+            save_numpy_array(x, 'backbone_output')
         if self.use_neck:
             x = self.neck(x)
             if isinstance(x, dict):
@@ -91,6 +116,8 @@ class BaseModel(nn.Layer):
             else:
                 y["neck_out"] = x
             final_name = "neck_out"
+        if DEBUG:
+            save_numpy_array(x, 'neck_output')
         if self.use_head:
             x = self.head(x)
             # for multi head, save ctc neck out for udml
@@ -102,6 +129,8 @@ class BaseModel(nn.Layer):
             else:
                 y["head_out"] = x
             final_name = "head_out"
+        if DEBUG:
+            save_numpy_array(x, 'head_output')
         if self.return_all_feats:
             if self.training:
                 return y

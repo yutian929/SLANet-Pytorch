@@ -2,6 +2,34 @@ import torch
 import torch.nn as nn
 from .torch_build import build_transform, build_backbone, build_neck, build_head
 
+DEBUG = True
+if DEBUG:
+    import numpy as np
+    SAVE_PREFIX = "./debug_data/pytorch/"
+
+    def save_tensor(tensor, filename):
+        if isinstance(tensor, torch.Tensor):
+            np.save(f"{filename}.npy", tensor.detach().cpu().numpy())
+        else:
+            print(f"Failed to save {filename}: Provided data is not a Tensor.")
+
+    def save_numpy_array(output, filename):
+        # Prefix for saving files
+        filename = SAVE_PREFIX + filename
+        # Handle different types of outputs
+        if isinstance(output, torch.Tensor):
+            save_tensor(output, filename)
+        elif isinstance(output, (list, tuple)):  # Handle list or tuple of tensors
+            for idx, tensor in enumerate(output):
+                save_tensor(tensor, f"{filename}_{idx}")  # Save each tensor with an index
+        elif isinstance(output, dict):  # Handle dictionary of tensors
+            for key, tensor in output.items():
+                save_tensor(tensor, f"{filename}_{key}")  # Save each tensor with its key
+        else:
+            print(f"Failed to save output: Unsupported data type {type(output)}.")
+    
+
+
 class BaseModel(nn.Module):
     def __init__(self, config):
         """
@@ -56,6 +84,8 @@ class BaseModel(nn.Module):
         self.return_all_feats = config.get("return_all_feats", False)
 
     def forward(self, x, data=None):
+        if DEBUG:
+            save_numpy_array(x, "input")
         # x 输入为 1x3x488x488
         y = dict()
         if self.use_transform:
@@ -67,6 +97,8 @@ class BaseModel(nn.Module):
         else:
             y["backbone_out"] = x
         final_name = "backbone_out"
+        if DEBUG:
+            save_numpy_array(x, "backbone_output")
         # 经过LCNet之后，记录四部分的输出值，各自Shape如下：
         # 1 x 64 x 122 x 122
         # 1 x 128 x 61 x 61
@@ -79,6 +111,8 @@ class BaseModel(nn.Module):
             else:
                 y["neck_out"] = x
             final_name = "neck_out"
+        if DEBUG:
+            save_numpy_array(x, "neck_output")
         # 经过CSPLayer + PAN结构，包括（top-down和down-top两个结构），各自shape如下：
         # 1 x 96 x 122 x 122
         # 1 x 96 x 61 x 61
@@ -96,6 +130,8 @@ class BaseModel(nn.Module):
             else:
                 y["head_out"] = x
             final_name = "head_out"
+        if DEBUG:
+            save_numpy_array(x, "head_output")
         if self.return_all_feats:
             if self.training:
                 return y
