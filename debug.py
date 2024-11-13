@@ -35,14 +35,18 @@ def compare_npy_files(file1, file2, rtol=1e-5, atol=1e-8):
     else:
         print("Shapes are not consistent. Cannot compare the data numerically.")
 
-# Example usage:
-file1s = ['./paddle/input.npy', './paddle/backbone_output_0.npy.npy', './paddle/backbone_output_1.npy.npy', './paddle/backbone_output_2.npy.npy', './paddle/backbone_output_3.npy.npy',
-          './paddle/neck_output_0.npy.npy', './paddle/neck_output_1.npy.npy', './paddle/neck_output_2.npy.npy', './paddle/neck_output_3.npy.npy', './paddle/head_output_structure_probs.npy.npy', './paddle/head_output_loc_preds.npy.npy']
-file2s = ['./pytorch/input.npy', './pytorch/backbone_output_0.npy', './pytorch/backbone_output_1.npy', './pytorch/backbone_output_2.npy', './pytorch/backbone_output_3.npy',
-          './pytorch/neck_output_0.npy', './pytorch/neck_output_1.npy', './pytorch/neck_output_2.npy', './pytorch/neck_output_3.npy', './pytorch/head_output_0.npy', './pytorch/head_output_1.npy']
-assert len(file1s) == len(file2s)
-for idx in range(len(file1s)):
-    file1 = file1s[idx]
-    file2 = file2s[idx]
-    print(f"Comparing {file1} and {file2}")
-    compare_npy_files(file1, file2, rtol=0, atol=0.001)
+if __name__ == "__main__":
+    DEBUG_DATA_DIR = "./debug_data"
+    PADDLE_DEBUG_DATA_DIR = DEBUG_DATA_DIR + "/paddle"
+    PYTORCH_DEBUG_DATA_DIR = DEBUG_DATA_DIR + "/pytorch"
+    # Example usage:
+    paddle_files = ['/input.npy', '/backbone_output_0.npy', '/backbone_output_1.npy', '/backbone_output_2.npy', '/backbone_output_3.npy',
+            '/neck_output_0.npy', '/neck_output_1.npy', '/neck_output_2.npy', '/neck_output_3.npy', '/head_output_structure_probs.npy', '/head_output_loc_preds.npy']
+    pytorch_files = ['/input.npy', '/backbone_output_0.npy', '/backbone_output_1.npy', '/backbone_output_2.npy', '/backbone_output_3.npy',
+            '/neck_output_0.npy', '/neck_output_1.npy', '/neck_output_2.npy', '/neck_output_3.npy', '/head_output_structure_probs.npy', '/head_output_loc_preds.npy']
+    assert len(paddle_files) == len(pytorch_files)
+    for idx in range(len(paddle_files)):
+        paddle_file = PADDLE_DEBUG_DATA_DIR + paddle_files[idx]
+        pytorch_file = PYTORCH_DEBUG_DATA_DIR + pytorch_files[idx]
+        print(f"Comparing {paddle_file} and {pytorch_file}")
+        compare_npy_files(paddle_file, pytorch_file, rtol=0, atol=0.001)

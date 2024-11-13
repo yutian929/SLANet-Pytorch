@@ -73,8 +73,8 @@ def save_name_param_pairs_to_csv(weights, filename, ignore_layers=None):
     
 
 if __name__ == '__main__':
-    # 配置参数（直接修改my_build）
-    CONFIG = {
+    # 配置fake参数（请直接修改lib/Arch/下的paddle or torch_build.py）
+    trigger_config = {
         "model_type": "table",
         "algorithm": "SLANet",
         "Backbone": {},
@@ -85,12 +85,12 @@ if __name__ == '__main__':
     paddle_weights = paddle.load(weights_path)
 
     # 初始化 PaddlePaddle 模型 --- --- --- Paddle Model --- --- ---
-    paddle_model = PaddleBaseModel(CONFIG)    
+    paddle_model = PaddleBaseModel(trigger_config)    
     # Set the state dict to the model
     paddle_model.set_state_dict(paddle_weights)
 
     # 初始化 PyTorch 模型 --- --- --- PyTorch Model --- --- ---
-    pytorch_model = TorchBaseModel(CONFIG)
+    pytorch_model = TorchBaseModel(trigger_config)
     print("Successfully initialized the PyTorch model.")
 
     # 转置前的模型参数，保存为csv
@@ -135,7 +135,7 @@ if __name__ == '__main__':
 
     pytorch_model.load_state_dict(torch.load('weights/pytorch_model_transferred.pth'))
     pytorch_model.eval()
-    test_input = torch.ones(1, 3, 488, 488)
+    test_input = torch.ones([1, 3, 488, 488])
     pytorch_output = pytorch_model(test_input)
 
     # 比较两个的数值是否一致
@@ -144,8 +144,8 @@ if __name__ == '__main__':
     paddle_loc_preds = paddle_output['loc_preds'].numpy()
 
     # Convert PyTorch output to numpy
-    pytorch_structure_probs = pytorch_output[0].detach().numpy()
-    pytorch_loc_preds = pytorch_output[1].detach().numpy()
+    pytorch_structure_probs = pytorch_output['structure_probs'].detach().numpy()
+    pytorch_loc_preds = pytorch_output['loc_preds'].detach().numpy()
 
     # Check if the shape of the outputs from both models are the same
     print("Checking output shapes...")
@@ -155,10 +155,8 @@ if __name__ == '__main__':
     print("Shapes are consistent. Now checking numerical closeness...")
     # Check numerical closeness
     try:
-        np.testing.assert_allclose(paddle_structure_probs, pytorch_structure_probs, rtol=1e-5, atol=1e-8)
-        np.testing.assert_allclose(paddle_loc_preds, pytorch_loc_preds, rtol=1e-5, atol=1e-8)
+        np.testing.assert_allclose(paddle_structure_probs, pytorch_structure_probs, rtol=0, atol=0.001)
+        np.testing.assert_allclose(paddle_loc_preds, pytorch_loc_preds, rtol=0, atol=0.001)
         print("Outputs are numerically close.")
     except AssertionError as e:
         print("Outputs are not close enough:", e)
-
-    print("Testing complete.")

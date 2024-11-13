@@ -23,19 +23,22 @@ if DEBUG:
     def save_numpy_array(data, filename):
         # breakpoint()
         filename = SAVE_PREFIX + filename
+        if filename.endswith('.npy'):
+            filename = filename[:-4]
         if isinstance(data, paddle.Tensor):
             np.save(f"{filename}.npy", data.numpy())
         elif isinstance(data, dict):
             for key, val in data.items():
-                save_numpy_array(val, f"{filename[len(SAVE_PREFIX):]}_{key}.npy")
+                save_numpy_array(val, f"{filename[len(SAVE_PREFIX):]}_{key}")
         elif isinstance(data, (list, tuple)):
             for idx, val in enumerate(data):
-                save_numpy_array(val, f"{filename[len(SAVE_PREFIX):]}_{idx}.npy")
+                save_numpy_array(val, f"{filename[len(SAVE_PREFIX):]}_{idx}")
         else:
             try:
                 np.save(f"{filename}.npy", np.array(data))
             except Exception as e:
                 print(f"Failed to save data to {filename}.npy: {e}")
+                
 from paddle import nn
 from .paddle_build import build_transform, build_backbone, build_neck, build_head
 
