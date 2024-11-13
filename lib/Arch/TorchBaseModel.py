@@ -5,7 +5,10 @@ from .torch_build import build_transform, build_backbone, build_neck, build_head
 DEBUG = True
 if DEBUG:
     import numpy as np
+    import os
+    
     SAVE_PREFIX = "./debug_data/pytorch/"
+    os.makedirs(SAVE_PREFIX, exist_ok=True)
 
     def save_tensor(tensor, filename):
         if isinstance(tensor, torch.Tensor):

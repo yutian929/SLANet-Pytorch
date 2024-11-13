@@ -19,7 +19,11 @@ DEBUG = True
 if DEBUG:
     import numpy as np
     import paddle
+    import os
+
     SAVE_PREFIX = "./debug_data/paddle/"
+    os.makedirs(SAVE_PREFIX, exist_ok=True)
+    
     def save_numpy_array(data, filename):
         # breakpoint()
         filename = SAVE_PREFIX + filename
@@ -38,7 +42,7 @@ if DEBUG:
                 np.save(f"{filename}.npy", np.array(data))
             except Exception as e:
                 print(f"Failed to save data to {filename}.npy: {e}")
-                
+
 from paddle import nn
 from .paddle_build import build_transform, build_backbone, build_neck, build_head
 

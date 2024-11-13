@@ -5,5 +5,4 @@
 /lib/CSPPAN/__pycache__/
 /lib/PPLCNet/__pycache__/
 /lib/SLAHead/__pycache__/
-/debug_data/paddle/*
-/debug_data/pytorch/*
+/debug_data/*
