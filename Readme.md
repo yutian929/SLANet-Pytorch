@@ -82,3 +82,5 @@ SLANet的架构通常包括PPLCNet（主干网络）+ CSPPAN（颈部网络）+ 
 [PP-OCR](https://github.com/PaddlePaddle/PaddleOCR)
 
 [CSDN Liekkas Kono](https://blog.csdn.net/shiwanghualuo/article/details/129132206)
+
+[Pytorch-Paddle API Mapping](https://www.paddlepaddle.org.cn/documentation/docs/zh/guides/model_convert/convert_from_pytorch/pytorch_api_mapping_cn.html)
