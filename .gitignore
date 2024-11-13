@@ -1,4 +1,5 @@
 /weights/*
+!/weights/ch_PP-StructrureV2_SLANet_plus_trained.pdparams
 /lib/__pycache__/
 /lib/Arch/__pycache__/
 /lib/CSPPAN/__pycache__/
